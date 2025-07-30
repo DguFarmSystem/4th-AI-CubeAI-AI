@@ -1,0 +1,118 @@
+<form method="post">
+  <!-- 좌측 대분류 탭 -->
+  <div class="left-tabs">
+    <button type="button" class="left-tab active" data-tab="pre">🟩 데이터 전처리</button>
+    <button type="button" class="left-tab"        data-tab="model">🟦 모델 설계</button>
+    <button type="button" class="left-tab"        data-tab="train">🟧 학습하기</button>
+    <button type="button" class="left-tab"        data-tab="eval">🟥 평가하기</button>
+  </div>
+
+  <!-- 각 탭별 블록 컨텐츠 -->
+  <div class="left-content">
+
+    <!-- 데이터 전처리 Pane -->
+    <div class="pane" id="pane-pre">
+      <!-- ① 데이터 선택 (항상 활성) -->
+      <div class="block block-pre block-required" 
+           id="block-data-selection" 
+           data-active="true">
+
+        <h3>데이터 선택</h3>
+        <label>훈련 CSV:</label>
+        <select name="dataset">{% for f in options %}<option>{{f}}</option>{% endfor %}</select>
+        <label style="margin-top:0.5rem;">테스트 사용 여부:</label>
+        <select id="is_test" name="is_test">
+          <option value="false">아니요</option>
+          <option value="true">예</option>
+        </select>
+        <div id="test-div" style="display:none; margin:0.5rem 0;">
+          <label>테스트 CSV:</label>
+          <select name="testdataset">{% for f in options %}<option>{{f}}</option>{% endfor %}</select>
+        </div>
+        <div id="ratio-div" style="margin:0.5rem 0;">
+          <label>학습 비율 a%:</label>
+          <input type="number" name="a" value="80" min="1" max="99">
+        </div>
+      </div>
+
+      <!-- ② 빈 데이터 삭제 -->
+      <div class="block block-pre" id="block-drop-na" data-active="true">
+        <h3>빈 데이터 삭제</h3>
+        <label><input type="checkbox" name="drop_na"> 빈 데이터(결측치) 삭제</label>
+      </div>
+
+      <!-- ③ 잘못된 라벨 삭제 -->
+      <div class="block block-pre" id="block-drop-bad" data-active="true">
+        <h3>잘못된 라벨 삭제</h3>
+        <label><input type="checkbox" id="drop_bad" name="drop_bad"> 라벨 범위 필터링</label>
+        <div id="drop_bad_params" style="display:none; margin-top:0.5rem;">
+          <label>최소 라벨:<input type="number" name="min_label" value="0" min="0"></label>
+          <label style="margin-left:0.5rem;">최대 라벨:<input type="number" name="max_label" value="9" min="0"></label>
+        </div>
+      </div>
+
+      <!-- ④ 입력/라벨 분리 -->
+      <div class="block block-pre" id="block-split-xy" data-active="true">
+        <h3>입력/라벨 분리</h3>
+        <label><input type="checkbox" name="split_xy" checked> 분리</label>
+      </div>
+
+      <!-- ⑤ 이미지 크기 변경 -->
+      <div class="block block-pre" id="block-resize" data-active="true">
+        <h3>이미지 크기 변경</h3>
+        <label>n:<input type="number" name="resize_n" value="28" min="1"></label>
+      </div>
+
+      <!-- ⑥ 이미지 증강 -->
+      <div class="block block-pre" id="block-augment" data-active="true">
+        <h3>이미지 증강</h3>
+        <select name="augment_method">
+          <option value="">선택</option>
+          <option value="rotate">rotate</option>
+          <option value="hflip">hflip</option>
+          <option value="vflip">vflip</option>
+          <option value="translate">translate</option>
+        </select>
+        <input type="number" name="augment_param" value="5" min="1" style="margin-left:0.5rem;">
+      </div>
+
+      <!-- ⑦ 픽셀 값 정규화 -->
+      <div class="block block-pre" id="block-normalize" data-active="true">
+        <h3>픽셀 값 정규화</h3>
+        <select name="normalize">
+          <option value="">선택</option>
+          <option value="0-1">0~1</option>
+          <option value="-1-1">-1~1</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 모델 설계 Pane -->
+    <div class="pane" id="pane-model" hidden>
+      <div class="block block-model" data-active="false">
+        <h3>모델 설계</h3>
+        <p>준비 중…</p>
+      </div>
+    </div>
+
+    <!-- 학습하기 Pane -->
+    <div class="pane" id="pane-train" hidden>
+      <div class="block block-train" data-active="false">
+        <h3>학습하기</h3>
+        <p>준비 중…</p>
+      </div>
+    </div>
+
+    <!-- 평가하기 Pane -->
+    <div class="pane" id="pane-eval" hidden>
+      <div class="block block-eval" data-active="false">
+        <h3>평가하기</h3>
+        <p>준비 중…</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 변환하기 버튼 -->
+  <button type="submit" class="btn" style="margin-top:1rem;">변환하기</button>
+</form>

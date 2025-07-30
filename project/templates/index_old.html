@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>데이터 전처리 블록</title>
+  <style>
+    body { display:flex; margin:0; height:100vh; font-family:Arial; }
+    .sidebar { width:300px; padding:1rem; background:#f4f4f4; overflow:auto; }
+    .main { flex:1; padding:1rem; overflow:auto; }
+    .block { background:#e8f5e9; padding:1rem; border-radius:5px; margin-bottom:1rem; }
+    .tabs { display:flex; border-bottom:1px solid #ccc; }
+    .tabs button { flex:1; padding:0.5rem; cursor:pointer; background:#eee; border:none; }
+    .tabs .active { background:#fff; border-bottom:2px solid #333; }
+    .tab-content { display:none; padding:1rem; }
+    .tab-content.active { display:block; }
+    .code { background:#272822; color:#f8f8f2; padding:1rem; font-family:monospace; white-space:pre; }
+    .btn { margin-top:1rem; padding:0.5rem 1rem; }
+    table, th, td { border:1px solid #ccc; border-collapse:collapse; padding:0.25rem; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <form method="post">
+      <!-- 1) 데이터 선택 -->
+      <div class="block">
+        <h3>데이터 선택</h3>
+        <label>훈련 CSV:</label>
+        <select name="dataset">
+          {% for f in options %}<option>{{f}}</option>{% endfor %}
+        </select>
+        <label style="margin-top:0.5rem;">테스트 사용 여부:</label>
+        <select id="is_test" name="is_test">
+          <option value="false">아니요</option>
+          <option value="true">예</option>
+        </select>
+        <div id="test-div" style="display:none; margin-top:0.5rem;">
+          <label>테스트 CSV:</label>
+          <select name="testdataset">
+            {% for f in options %}<option>{{f}}</option>{% endfor %}
+          </select>
+        </div>
+        <div id="ratio-div" style="margin-top:0.5rem;">
+          <label>학습 비율 a%:</label>
+          <input type="number" name="a" value="80" min="1" max="99">
+        </div>
+      </div>
+
+      <!-- 2) 빈 데이터 삭제 -->
+      <div class="block">
+        <h3>빈 데이터 삭제</h3>
+        <label><input type="checkbox" name="drop_na"> 빈 데이터(결측치) 삭제</label>
+      </div>
+
+      <!-- 3) 잘못된 라벨 삭제 -->
+      <div class="block">
+        <h3>잘못된 라벨 삭제</h3>
+        <label><input type="checkbox" id="drop_bad" name="drop_bad"> 라벨 범위 필터링</label>
+        <div id="drop_bad_params" style="display:none; margin-top:0.5rem;">
+          <label>최소 라벨:
+            <input type="number" name="min_label" value="0" min="0">
+          </label>
+          <label>최대 라벨:
+            <input type="number" name="max_label" value="9" min="0">
+          </label>
+        </div>
+      </div>
+
+      <!-- 4) 입력/라벨 분리 -->
+      <div class="block">
+        <h3>입력/라벨 분리</h3>
+        <label><input type="checkbox" name="split_xy" checked> 분리</label>
+      </div>
+
+      <!-- 5) 이미지 크기 변경 -->
+      <div class="block">
+        <h3>이미지 크기 변경</h3>
+        <label>n:
+          <input type="number" name="resize_n" value="28" min="1">
+        </label>
+      </div>
+
+      <!-- 6) 이미지 증강 -->
+      <div class="block">
+        <h3>이미지 증강</h3>
+        <select name="augment_method">
+          <option value="">선택</option>
+          <option value="rotate">rotate</option>
+          <option value="hflip">hflip</option>
+          <option value="vflip">vflip</option>
+          <option value="translate">translate</option>
+        </select>
+        <input type="number" name="augment_param" value="5" min="1" style="margin-left:0.5rem;">
+      </div>
+
+      <!-- 7) 픽셀 값 정규화 -->
+      <div class="block">
+        <h3>픽셀 값 정규화</h3>
+        <select name="normalize">
+          <option value="">선택</option>
+          <option value="0-1">0~1</option>
+          <option value="-1-1">-1~1</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn">변환하기</button>
+    </form>
+  </div>
+
+  <div class="main">
+    <div class="tabs">
+      <button id="tab-code" class="active">코드</button>
+      <button id="tab-data">데이터 구조</button>
+    </div>
+    <div id="content-code" class="tab-content active">
+      {% if snippet %}
+        <div class="code">{{ snippet }}</div>
+        <a href="/download" class="btn">show.py 다운로드</a>
+      {% endif %}
+    </div>
+    <div id="content-data" class="tab-content">
+      <label>데이터셋:</label>
+      <select id="data-select">
+        {% for f in options %}<option>{{f}}</option>{% endfor %}
+      </select>
+      <div style="margin-top:0.5rem;">
+        <label>항목:</label>
+        <select id="info-type">
+          <option value="shape">행/열 수</option>
+          <option value="structure">구조</option>
+          <option value="sample">샘플 보기</option>
+          <option value="images">이미지 보기</option>
+        </select>
+        <input type="number" id="param-n" value="5" min="1" style="display:none; width:60px; margin-left:0.5rem;">
+      </div>
+      <div id="data-info" style="margin-top:1rem;"></div>
+    </div>
+  </div>
+
+  <script>
+    // 탭 전환
+    const showTab = t => {
+      document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+      document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+      document.getElementById('content-'+t).classList.add('active');
+      document.getElementById('tab-'+t).classList.add('active');
+    };
+    document.getElementById('tab-code').onclick = ()=> showTab('code');
+    document.getElementById('tab-data').onclick = ()=> showTab('data');
+
+    // 테스트 CSV 토글
+    const isTest = document.getElementById('is_test'),
+          td     = document.getElementById('test-div'),
+          rd     = document.getElementById('ratio-div');
+    isTest.onchange = () => {
+      if (isTest.value==='true') {
+        td.style.display='block'; rd.style.display='none';
+      } else {
+        td.style.display='none';  rd.style.display='block';
+      }
+    };
+    isTest.onchange();
+
+    // 잘못된 라벨 파라미터 토글
+    const dropBad = document.getElementById('drop_bad'),
+          badParams = document.getElementById('drop_bad_params');
+    dropBad.onchange = () => badParams.style.display = dropBad.checked ? 'block' : 'none';
+    dropBad.onchange();
+
+    // 데이터 구조 서브선택
+    const infoType = document.getElementById('info-type'),
+          paramN   = document.getElementById('param-n');
+    infoType.onchange = () => {
+      paramN.style.display = (['sample','images'].includes(infoType.value)) ? 'inline-block' : 'none';
+      loadInfo();
+    };
+    document.getElementById('data-select').onchange = loadInfo;
+
+    function loadInfo() {
+      const f = document.getElementById('data-select').value,
+            t = infoType.value,
+            n = (t==='sample'||t==='images') ? paramN.value : 0;
+      fetch(`/data-info?file=${f}&type=${t}&n=${n}`)
+        .then(r=>r.json()).then(info=>{
+          let h = '';
+          if (t==='shape') h = `<p>행: ${info.rows}, 열: ${info.cols}</p>`;
+          if (t==='structure') {
+            h = '<ul>'; info.columns.forEach(c=> h+=`<li>${c.name}: ${c.dtype}</li>`); h+='</ul>';
+          }
+          if (t==='sample') {
+            h = '<table><tr>'+ info.columns.map(c=>`<th>${c}</th>`).join('') +'</tr>';
+            info.sample.forEach(rw=> h+='<tr>'+ rw.map(v=>`<td>${v}</td>`).join('') +'</tr>');
+            h+='</table>';
+          }
+          if (t==='images') {
+            h = '<div style="display:flex;flex-wrap:wrap;">';
+            info.images.forEach(b64=> h+=`<img src="data:image/png;base64,${b64}" style="width:100px;margin:2px;">`);
+            h+='</div>';
+          }
+          document.getElementById('data-info').innerHTML = h;
+        });
+    }
+    infoType.onchange();
+  </script>
+</body>
+</html>
