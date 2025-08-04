@@ -1,0 +1,19 @@
+# Python 가상환경 무시
+venv/
+finenv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# IDE 설정
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 기타 로그/실행 파일
+*.log
+
+.env
