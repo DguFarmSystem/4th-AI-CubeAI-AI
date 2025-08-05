@@ -4,11 +4,8 @@ from pydantic import BaseModel
 import os
 from fastapi.middleware.cors import CORSMiddleware
 import openai
-from langchain.prompts import PromptTemplate
 import logging
 from dotenv import find_dotenv, load_dotenv
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores.pgvector import PGVector
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores.pgvector import PGVector

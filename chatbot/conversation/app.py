@@ -29,7 +29,7 @@ class Conversation(BaseModel):
     conversation: List[Message]
 
 
-@app.get("/conservation/{conversation_id}")
+@app.get("/conversation/{conversation_id}")
 async def get_conversation(conversation_id: str):
     logger.info(f"Retrieving initial id {conversation_id}")
     existing_conversation_json = r.get(conversation_id)
@@ -41,7 +41,7 @@ async def get_conversation(conversation_id: str):
 
 
 @app.post("/conversation/{conversation_id}")
-async def send_conservation(conversation_id: str, conversation: Conversation):
+async def send_conversation(conversation_id: str, conversation: Conversation):
     logger.info(f"Sending Conversation with ID {conversation_id} to OpenAI")
     existing_conversation_json = r.get(conversation_id)
     if existing_conversation_json:
