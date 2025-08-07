@@ -1,0 +1,53 @@
+
+---
+
+### `01_data_selection_block.txt`
+```text
+① Data (데이터 선택 블록)
+==========================
+
+블록명/파라미터
+--------------
+| 블록명         | 파라미터(선택) |
+|----------------|-----------------|
+| 데이터 선택하기 | • `dataset` : 훈련용 CSV 파일 경로 (자동 인식된 `.csv` 중 선택)
+                 | • `is_test` : 테스트 데이터셋 사용 여부 (`true`/`false`)
+                 | • `testdataset` : (is_test=`true`일 때) 테스트용 CSV 파일 경로
+                 | • `a` : 학습용 데이터 비율 (%) (is_test=`false`일 때만 사용)
+
+설명
+----
+- `is_test == 'true'` 이면 **학습/테스트를 각각 지정된 CSV**에서 로드합니다.
+- 그렇지 않으면 **단일 학습 CSV**를 불러온 뒤, `a%`를 학습으로, 나머지를 테스트로 **무작위 분할**합니다.
+
+코드 스니펫
+-----------
+```python
+# blocks/data_selection.py
+
+def generate_data_selection_snippet(dataset, is_test, testdataset, a):
+    """
+    train_df / test_df 로드 및 (테스트 지정 유무에 따라) 분할하는 코드 블록 생성
+    - dataset: 학습 CSV 경로 (str)
+    - is_test: 'true' 또는 'false' (str)
+    - testdataset: 테스트 CSV 경로 (str, is_test='true'일 때만 의미)
+    - a: 학습용 비율(%) (int 또는 str)
+    """
+    lines = []
+    lines.append("# -----------------------------")
+    lines.append("# ---------[데이터 선택 블록]---------")
+    lines.append("# -----------------------------")
+    # 1) 훈련 데이터 로드
+    lines.append(f"train_df = pd.read_csv('{dataset}')  # '{dataset}' 파일에서 학습용 DataFrame 생성")
+    lines.append("")
+    if is_test == 'true':
+        # 2) 사용자가 지정한 테스트 데이터 로드
+        lines.append("# 테스트용 CSV 지정 → 해당 파일에서 test_df 생성")
+        lines.append(f"test_df  = pd.read_csv('{testdataset}')  # '{testdataset}' 파일에서 테스트용 DataFrame 생성")
+    else:
+        # 2) 테스트 미지정 → 학습 데이터에서 일부 분할
+        lines.append(f"# 테스트 미지정 → 학습 데이터를 {a}% 사용, 나머지 {100-int(a)}%를 테스트로 분할")
+        lines.append(f"test_df  = train_df.sample(frac={(100-int(a))/100.0}, random_state=42)  # 무작위 샘플링")
+        lines.append("train_df = train_df.drop(test_df.index)  # 분리된 테스트 인덱스 학습 데이터에서 제거")
+    lines.append("")
+    return "\n".join(lines)

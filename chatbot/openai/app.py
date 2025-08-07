@@ -40,16 +40,19 @@ class Message(BaseModel):
 class Conversation(BaseModel):
     conversation: List[Message]
 
-embeddings = OpenAIEmbeddings()
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 chat = ChatOpenAI(temperature=0)
 store = PGVector(
     collection_name=COLLECTION_NAME,
     connection_string=CONNECTION_STRING,
     embedding_function=embeddings,
 )
-retriever = store.as_retriever()
+retriever = store.as_retriever(
+    search_type="mmr",  # or "similarity"
+    search_kwargs={"k": 4, "fetch_k": 20, "lambda_mult": 0.5}
+)
 
-prompt_template = """AI 관련 지식을 알려주는 FAQ 챗봇으로서, 다음의 AI 관련 정보를 보유하고 있습니다:
+prompt_template = """AI 관련 지식을 알려주는 docs 챗봇으로서, 다음의 AI 관련 정보를 보유하고 있습니다:
 
 {context}
 
@@ -67,11 +70,13 @@ def create_messages(conversation):
 
 
 def format_docs(docs):
-    formatted_docs = []
-    for doc in docs:
-        formatted_doc = "Source: " + doc.metadata['source']
-        formatted_docs.append(formatted_doc)
-    return '\n'.join(formatted_docs)
+    parts = []
+    for i, d in enumerate(docs, 1):
+        src = d.metadata.get("source", "")
+        txt = d.page_content.strip()
+        parts.append(f"[{i}] SOURCE: {src}\n{txt}")
+    return "\n\n".join(parts)
+
 
 app = FastAPI()
 app.add_middleware(

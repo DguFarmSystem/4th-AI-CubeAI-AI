@@ -1,0 +1,42 @@
+
+---
+
+### `02_preprocessing_pipeline.txt`
+```text
+② Preprocessing (데이터 가공 블록)
+===============================
+
+파이프라인 개요
+--------------
+일반적인 이미지/탭 데이터 전처리는 아래 순서로 진행합니다.
+
+| 순서 | 블록명                 | 파일명                   | 파라미터 및 옵션 |
+|-----:|------------------------|--------------------------|------------------|
+| 1    | 빈 데이터 삭제하기     | `blocks/drop_na.py`      | • 자동 처리 (파라미터 없음) |
+| 2    | 잘못된 라벨 삭제하기   | `blocks/drop_bad_labels.py` | • 최소 라벨(`min_label`, 기본: 0) • 최대 라벨(`max_label`, 기본: 9) |
+| 3    | 데이터 나누기          | `blocks/data_selection.py` | • 학습 비율(`a%`, 기본: 80) • 테스트 CSV 지정 여부 (`is_test`: `true`/`false`) |
+| 4    | 입력/라벨 분리         | `blocks/split_xy.py`     | • 자동 처리 (파라미터 없음) → `X_train`, `y_train`, `X_test`, `y_test` 및 Tensor 변환 |
+| 5    | 이미지 크기 변경       | `blocks/resize.py`       | • 가로(`n`), 세로(`n`) 크기 (기본: 28) |
+| 6    | 이미지 증강            | `blocks/augment.py`      | • 방법: `rotate`, `hflip`, `vflip`, `translate` • 파라미터: `rotate`(각도), `translate`(픽셀) |
+| 7    | 픽셀 값 정규화         | `blocks/normalize.py`    | • 방법: `0-1` (0~1 스케일) • `-1-1` (-1~1 스케일) |
+
+미니 예시(흐름만)
+-----------------
+```python
+# 1) 결측치/이상치 제거
+train_df = train_df.dropna().copy()
+test_df  = test_df.dropna().copy()
+
+# 2) 잘못된 라벨 제거 (예시: 0~9 범위를 벗어난 경우)
+min_label, max_label = 0, 9
+train_df = train_df[(train_df['label'] >= min_label) & (train_df['label'] <= max_label)]
+test_df  = test_df[(test_df['label'] >= min_label) & (test_df['label'] <= max_label)]
+
+# 3) 입력/라벨 분리
+X_train = train_df.drop(columns=['label']).values
+y_train = train_df['label'].values
+X_test  = test_df.drop(columns=['label']).values
+y_test  = test_df['label'].values
+
+# 4) (이미지일 경우) 크기 변경/증강/정규화는 프레임워크(torchvision 등)로 처리
+#    예: torchvision.transforms.Resize((28,28)), ToTensor(), Normalize(...)
