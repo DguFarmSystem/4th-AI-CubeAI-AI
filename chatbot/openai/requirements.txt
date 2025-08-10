@@ -2,11 +2,10 @@ fastapi
 uvicorn[standard]
 redis
 requests
-openai
-langchain
+langchain-openai
 langchain-community
-tiktoken
 langchain-core
+tiktoken
 pgvector
 python-dotenv
 psycopg2-binary
