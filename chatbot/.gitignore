@@ -17,3 +17,5 @@ Thumbs.db
 *.log
 
 .env
+
+CLAUDE.md
