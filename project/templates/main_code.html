@@ -1,4 +1,46 @@
-{% if snippet %}
-  <div class="code">{{ snippet }}</div>
-  <a href="/download" class="btn">show.py 다운로드</a>
-{% endif %}
+{% set any_snippet = (snippet_pre or snippet_model or snippet_train or snippet_eval) %}
+
+<div class="stage-tabs">
+  <button type="button" class="stage-tab active" data-stage="pre">Preprocessing</button>
+  <button type="button" class="stage-tab"        data-stage="model">ModelDesign</button>
+  <button type="button" class="stage-tab"        data-stage="train">Training</button>
+  <button type="button" class="stage-tab"        data-stage="eval">Evaluation</button>
+</div>
+
+<!-- Preprocessing 코드 -->
+<div class="stage-pane" id="pane-code-pre">
+  {% if snippet_pre %}
+    <pre class="code">{{ snippet_pre | e }}</pre>
+  {% else %}
+    <p class="muted">Preprocessing 스니펫이 비어 있습니다. 좌측 블록을 설정하고 “변환하기”를 눌러주세요.</p>
+  {% endif %}
+</div>
+
+<!-- ModelDesign 코드 -->
+<div class="stage-pane" id="pane-code-model" hidden>
+  {% if snippet_model %}
+    <pre class="code">{{ snippet_model | e }}</pre>
+  {% else %}
+    <p class="muted">ModelDesign 스니펫이 비어 있습니다.</p>
+  {% endif %}
+</div>
+
+<!-- Training 코드 -->
+<div class="stage-pane" id="pane-code-train" hidden>
+  {% if snippet_train %}
+    <pre class="code">{{ snippet_train | e }}</pre>
+  {% else %}
+    <p class="muted">Training 스니펫이 비어 있습니다.</p>
+  {% endif %}
+</div>
+
+<!-- Evaluation 코드 -->
+<div class="stage-pane" id="pane-code-eval" hidden>
+  {% if snippet_eval %}
+    <pre class="code">{{ snippet_eval | e }}</pre>
+  {% else %}
+    <p class="muted">Evaluation 스니펫이 비어 있습니다.</p>
+  {% endif %}
+</div>
+
+<a href="/download" class="btn" {% if not any_snippet %}disabled aria-disabled="true"{% endif %}>show.py 다운로드</a>

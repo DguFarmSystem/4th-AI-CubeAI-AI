@@ -8,115 +8,75 @@ import torch, numpy as np
 from PIL import Image
 from torchvision import transforms
 
-from blocks.Preprocessing.data_selection     import generate_data_selection_snippet
-from blocks.Preprocessing.drop_na           import generate_drop_na_snippet
-from blocks.Preprocessing.drop_bad_labels   import generate_drop_bad_labels_snippet
-from blocks.Preprocessing.split_xy          import generate_split_xy_snippet
-from blocks.Preprocessing.resize            import generate_resize_snippet
-from blocks.Preprocessing.augment           import generate_augment_snippet
-from blocks.Preprocessing.normalize         import generate_normalize_snippet
+from blocks.Preprocessing.start import generate_preprocessing_snippet
+from blocks.ModelDesign.start      import generate_modeldesign_snippet
+from blocks.Training.start         import generate_training_snippet
+from blocks.Evaluation.start       import generate_evaluation_snippet
 
 app = Flask(__name__, template_folder='templates')
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    snippet = ""
-    # 현재 디렉토리의 모든 CSV 파일 목록 (원본 + 변환된)
+    # 단계별 코드 스니펫 초기화
+    snippet_pre   = ""
+    snippet_model = ""
+    snippet_train = ""
+    snippet_eval  = ""
+
+    # CSV 옵션 읽기
     options = [f for f in os.listdir('.') if f.endswith('.csv')]
 
     if request.method == 'POST':
-        # 1) 데이터 선택 블록 파라미터
-        dataset      = request.form['dataset']
-        is_test      = request.form['is_test']
-        testdataset  = request.form.get('testdataset','')
-        a            = request.form.get('a','100')
+        try:
+            # 1) Preprocessing
+            snippet_pre   = generate_preprocessing_snippet(request.form)
+            # 2) ModelDesign
+            snippet_model = generate_modeldesign_snippet(request.form)
+            # 3) Training
+            snippet_train = generate_training_snippet(request.form)
+            # 4) Evaluation
+            snippet_eval  = generate_evaluation_snippet(request.form)
 
-        # 2) 결측치 삭제 블록 파라미터
-        drop_na_flag = 'drop_na' in request.form
+            # 전체 show.py 생성
+            full = "\n\n".join(filter(None, [
+                snippet_pre, snippet_model, snippet_train, snippet_eval
+            ]))
+            with open('show.py', 'w', encoding='utf-8') as f:
+                f.write(full)
 
-        # 3) 잘못된 라벨 삭제 블록 파라미터
-        drop_bad_flag = 'drop_bad' in request.form
-        min_label    = request.form.get('min_label','0')
-        max_label    = request.form.get('max_label','9')
+            # (선택) 변환된 DF 저장 — 현재 exec 비활성화 상태
+            namespace = {}
+            full_code = (
+                "import pandas as pd\n"
+                "import torch\n"
+                "import numpy as np\n"
+                "from PIL import Image\n"
+                "from torchvision import transforms\n"
+                + snippet_pre
+            )
+            # exec(full_code, namespace, namespace)  # 필요 시 주석 해제
 
-        # 4) 입력/라벨 분리 블록 파라미터
-        split_xy_flag = 'split_xy' in request.form
+            if 'train_df' in namespace:
+                namespace['train_df'].to_csv('train_transformed.csv', index=False)
+            if 'test_df' in namespace:
+                namespace['test_df'].to_csv('test_transformed.csv', index=False)
 
-        # 5) 이미지 크기 변경 블록 파라미터
-        resize_n     = request.form.get('resize_n')
+            # 옵션 갱신 (새로 생긴 CSV 포함)
+            options = [f for f in os.listdir('.') if f.endswith('.csv')]
 
-        # 6) 이미지 증강 블록 파라미터
-        augment_m    = request.form.get('augment_method')
-        augment_p    = request.form.get('augment_param')
+        except Exception as e:
+            # 서버 콘솔에 에러 출력 (템플릿은 정상 렌더)
+            print(f"[ERROR] POST / index(): {e}", flush=True)
 
-        # 7) 픽셀 값 정규화 블록 파라미터
-        normalize_m  = request.form.get('normalize')
-
-        # — 코드 스니펫 조립 순서 —
-        lines = [
-            "# 자동 생성된 show.py",
-            "# 필요한 라이브러리 임포트",
-            "import pandas as pd",
-            "import torch, numpy as np",
-            "from PIL import Image",
-            "from torchvision import transforms",
-            ""
-        ]
-        # 1) 데이터 불러오기
-        lines.append(generate_data_selection_snippet(dataset, is_test, testdataset, a))
-        lines.append("")
-        # 2) 결측치 삭제
-        if drop_na_flag:
-            lines.append(generate_drop_na_snippet())
-            lines.append("")
-        # 3) 잘못된 라벨 삭제
-        if drop_bad_flag:
-            lines.append(generate_drop_bad_labels_snippet(min_label, max_label))
-            lines.append("")
-        # 4) 입력/라벨 분리
-        if split_xy_flag:
-            lines.append(generate_split_xy_snippet())
-            lines.append("")
-        # 5) 이미지 크기 변경
-        if resize_n:
-            lines.append(generate_resize_snippet(int(resize_n)))
-            lines.append("")
-        # 6) 이미지 증강
-        if augment_m and augment_p:
-            lines.append(generate_augment_snippet(augment_m, int(augment_p)))
-            lines.append("")
-        # 7) 픽셀 값 정규화
-        if normalize_m:
-            lines.append(generate_normalize_snippet(normalize_m))
-            lines.append("")
-
-        snippet = "\n".join(lines)
-
-        # 1) show.py 파일 생성
-        with open('show.py', 'w', encoding='utf-8') as f:
-            f.write(snippet)
-
-        # 2) exec를 통해 변환된 train_df/test_df 저장
-        namespace = {}
-        full_code = (
-            "import pandas as pd\n"
-            "import torch\n"
-            "import numpy as np\n"
-            "from PIL import Image\n"
-            "from torchvision import transforms\n"
-            + snippet
-        )
-        # globals와 locals를 같은 dict로 넘겨 줍니다.
-        # exec(full_code, namespace, namespace)
-        if 'train_df' in namespace:
-            namespace['train_df'].to_csv('train_transformed.csv', index=False)
-        if 'test_df' in namespace:
-            namespace['test_df'].to_csv('test_transformed.csv', index=False)
-
-        # 3) 옵션 갱신
-        options = [f for f in os.listdir('.') if f.endswith('.csv')]
-
-    return render_template('index.html', snippet=snippet, options=options)
+    # ✅ GET이든 POST든 항상 반환!
+    return render_template(
+        'index.html',
+        snippet_pre=snippet_pre,
+        snippet_model=snippet_model,
+        snippet_train=snippet_train,
+        snippet_eval=snippet_eval,
+        options=options
+    )
 
 @app.route('/download')
 def download_file():
@@ -157,5 +117,5 @@ if __name__ == "__main__":
     # app.run(debug=True, use_reloader=False)
 
     # 로컬 호스트의 9000번 포트에서만 서비스
-    app.run(host="127.0.0.1", port=9000, debug=True, use_reloader=False)
-
+    # app.run(host="127.0.0.1", port=9000, debug=True, use_reloader=False)
+    app.run(host="127.0.0.1", port=9099, debug=True, use_reloader=False)

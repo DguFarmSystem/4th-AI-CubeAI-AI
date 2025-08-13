@@ -1,59 +1,87 @@
-// 좌측 대분류 탭 전환
-document.querySelectorAll('.left-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.left-tab').forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    const key = tab.dataset.tab;  // pre, model, train, eval
-    document.querySelectorAll('.pane').forEach(p=>p.hidden = true);
-    document.getElementById('pane-' + key).hidden = false;
+// static/js/sidebar.js
+
+function setBlockActive(block, active) {
+  block.dataset.active = active ? 'true' : 'false';
+
+  // 필수 블록은 항상 활성 상태(입력 disabled 금지)
+  const isRequired = block.classList.contains('block-required');
+
+  block.querySelectorAll('input, select, textarea, button').forEach(el => {
+    if (isRequired) {
+      el.disabled = false;
+    } else {
+      el.disabled = !active;
+    }
   });
-});
 
+  // 시각 효과는 CSS에서 [data-active]로 처리
+}
 
-// 블록 활성/비활성 토글 함수
-function setBlockActive(block, isActive) {
-  block.dataset.active = isActive ? 'true' : 'false';
-  block.querySelectorAll('input, select').forEach(el => {
-    el.disabled = !isActive;
+// 좌측 대분류(전처리/모델/학습/평가) 탭 전환
+function initLeftTabs() {
+  document.querySelectorAll('.left-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.left-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const key = tab.dataset.tab; // pre, model, train, eval
+      document.querySelectorAll('.pane').forEach(p => p.hidden = true);
+      document.getElementById('pane-' + key).hidden = false;
+    });
+  });
+
+  // 초기 표시: 전처리 탭
+  const first = document.querySelector('.left-tab[data-tab="pre"]');
+  if (first) first.click();
+}
+
+// 블록 초기화: data-active / block-required 기반으로 통일
+function initBlocks() {
+  document.querySelectorAll('.block').forEach(block => {
+    const isRequired = block.classList.contains('block-required');
+    const wantActive = (block.dataset.active || 'false') === 'true';
+    setBlockActive(block, isRequired || wantActive);
+  });
+
+  // 블록 클릭 시 토글 (내부 컨트롤 클릭은 제외, 필수 블록 제외)
+  document.querySelectorAll('.block').forEach(block => {
+    block.addEventListener('click', e => {
+      const tag = e.target.tagName;
+      if (['INPUT','SELECT','LABEL','OPTION','TEXTAREA','BUTTON'].includes(tag)) return;
+      if (block.classList.contains('block-required')) return;
+      const now = block.dataset.active === 'true';
+      setBlockActive(block, !now);
+    });
   });
 }
 
-// 초기 상태 설정
-document.querySelectorAll('.pane').forEach(pane => {
-  pane.querySelectorAll('.block').forEach(block => {
-    const id = block.id;
-    let active = false;
-    switch(id) {
-      case 'block-data-selection': active = true; break;
-      case 'block-drop-na':       active = document.querySelector('input[name="drop_na"]').checked; break;
-      case 'block-drop-bad':      active = document.querySelector('input[name="drop_bad"]').checked; break;
-      case 'block-split-xy':      active = document.querySelector('input[name="split_xy"]').checked; break;
-      case 'block-resize':        active = document.querySelector('input[name="resize_n"]').value !== ''; break;
-      case 'block-augment':       active = document.querySelector('select[name="augment_method"]').value !== ''; break;
-      case 'block-normalize':     active = document.querySelector('select[name="normalize"]').value !== ''; break;
-      default:                    active = false;
-    }
-    setBlockActive(block, active);
-  });
+// 의존 필드 토글(테스트 사용 여부, 라벨 필터)
+function initDependentFields() {
+  const isTest = document.getElementById('is_test');
+  if (isTest) {
+    const syncTest = () => {
+      const yes = isTest.value === 'true';
+      const testDiv  = document.getElementById('test-div');
+      const ratioDiv = document.getElementById('ratio-div');
+      if (testDiv)  testDiv.style.display  = yes ? 'block' : 'none';
+      if (ratioDiv) ratioDiv.style.display = yes ? 'none' : 'block';
+    };
+    isTest.addEventListener('change', syncTest);
+    syncTest();
+  }
+
+  const dropBad = document.getElementById('drop_bad');
+  if (dropBad) {
+    const syncBad = () => {
+      const p = document.getElementById('drop_bad_params');
+      if (p) p.style.display = dropBad.checked ? 'block' : 'none';
+    };
+    dropBad.addEventListener('change', syncBad);
+    syncBad();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initLeftTabs();
+  initBlocks();
+  initDependentFields();
 });
-
-// 블록 클릭 시 토글 (단, 내부 컨트롤 클릭 제외)
-document.querySelectorAll('.block').forEach(block => {
-  block.addEventListener('click', e => {
-    if (['INPUT','SELECT','LABEL'].includes(e.target.tagName)) return;
-    setBlockActive(block, block.dataset.active === 'false');
-  });
-});
-
-// 테스트 사용 여부에 따른 필드 토글
-document.getElementById('is_test').onchange = function() {
-  document.getElementById('test-div').style.display = this.value === 'true' ? 'block' : 'none';
-  document.getElementById('ratio-div').style.display = this.value === 'false' ? 'block' : 'none';
-};
-document.getElementById('is_test').dispatchEvent(new Event('change'));
-
-// 잘못된 라벨 파라미터 토글
-document.getElementById('drop_bad').onchange = function() {
-  document.getElementById('drop_bad_params').style.display = this.checked ? 'block' : 'none';
-};
-document.getElementById('drop_bad').dispatchEvent(new Event('change'));

@@ -10,22 +10,9 @@ from torchvision import transforms
 # -----------------------------
 train_df = pd.read_csv('mnist_test.csv')  # 'mnist_test.csv' 파일에서 학습용 데이터로드
 
-test_df  = pd.read_csv('{testdataset}')  # 사용자가 지정한 테스트 데이터로드
-
-
-# -----------------------------
-# ------[빈 데이터 삭제 블록]------
-# -----------------------------
-train_df = train_df.dropna()  # 학습 데이터에서 NaN 포함 행 제거
-test_df  = test_df.dropna()   # 테스트 데이터에서 NaN 포함 행 제거
-
-
-# -----------------------------
-# --[잘못된 라벨 삭제 블록]--
-# -----------------------------
-# 라벨값 허용 범위: 3 ~ 9
-train_df = train_df[train_df['label'].between(3, 9)]  # 학습 데이터 필터링
-test_df  = test_df[test_df['label'].between(3, 9)]   # 테스트 데이터 필터링
+# 테스트 미지정 → 학습 데이터를 80% 사용, 나머지 20%를 테스트로 분할
+test_df  = train_df.sample(frac=0.2, random_state=42)
+train_df = train_df.drop(test_df.index)
 
 
 # -----------------------------
@@ -67,28 +54,30 @@ images_2d = X_test.reshape(-1, 28, 28).astype(np.uint8)
 X_test  = torch.stack([transform(img) for img in images_2d], dim=0)
 
 
-# -----------------------------
-# ---[이미지 증강 블록]---
-# -----------------------------
-# 방법: vflip, 파라미터: 10
-from torchvision import transforms
-transform_aug = transforms.RandomVerticalFlip(p=1.0)    # 수직 뒤집기
 
-# 학습 데이터 증강 및 라벨 복제
-aug_train = torch.stack([transform_aug(x) for x in X_train], dim=0)  # 증강된 이미지
-X_train = torch.cat([X_train, aug_train], dim=0)  # 원본+증강 이미지 합치기
-y_train = torch.cat([y_train, y_train], dim=0)   # 라벨도 원본 복제하여 합치기
+import torch.nn as nn
+import torch.optim as optim
 
-# 테스트 데이터 증강 및 라벨 복제
-aug_test  = torch.stack([transform_aug(x) for x in X_test], dim=0)   # 증강된 이미지
-X_test   = torch.cat([X_test, aug_test], dim=0)   # 원본+증강 이미지 합치기
-y_test   = torch.cat([y_test, y_test], dim=0)     # 테스트 라벨 복제하여 합치기
+# -----------------------------
+# --------- [모델설계 블록] ---------
+# -----------------------------
 
 
 # -----------------------------
-# ---[픽셀 값 정규화 블록]---
+# --------- [학습하기 블록] ---------
 # -----------------------------
-# 0~1 범위로 스케일링
-X_train = X_train / 255.0
-X_test  = X_test  / 255.0
+import torch.nn as nn
+import torch.optim as optim
 
+# -----------------------------
+# -------[학습 옵션 블록]--------
+# -----------------------------
+# epochs=10, batch_size=64, patience=3
+num_epochs = 10        # 전체 학습 반복 횟수
+batch_size = 64     # 한 배치 크기
+patience = 3         # 조기 종료 전 대기 에폭 수
+
+
+# -----------------------------
+# --------- [평가하기 블록] ---------
+# -----------------------------

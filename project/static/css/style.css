@@ -70,3 +70,40 @@ body { display:flex; margin:0; height:100vh; font-family:Arial,sans-serif; }
   opacity: 1 !important;     /* 절대 비활성화 불가 */
   cursor: default;           /* 클릭해도 토글 안 됨 */
 }
+
+/* 단계별 코드 탭 */
+.stage-tabs {
+  display: flex;
+  margin-bottom: 0.5rem;
+}
+.stage-tab {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  background: #eee;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.stage-tab.active {
+  background: #fff;
+  border-bottom: 2px solid #333;
+}
+
+/* 단계별 코드 패널 */
+.stage-pane[hidden] { display: none; }
+
+pre.code {
+  background: #272822;
+  color: #f8f8f2;
+  padding: 1rem;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;     /* 줄바꿈/개행 보존 */
+  word-break: break-word;    /* 너무 긴 라인도 줄바꿈 */
+  overflow-x: auto;
+  margin: 0;
+}
+
+.muted { color: #666; }
