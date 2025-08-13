@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . /app
 
-# requirements.txt 설치
+# requirements 설치
 RUN pip install --no-cache-dir -r requirements.txt
 
 # PostgreSQL 클라이언트 설치
