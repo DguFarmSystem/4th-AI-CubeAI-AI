@@ -99,6 +99,79 @@ def format_docs(docs):
         parts.append(f"[{i}] SOURCE: {src}\n{txt}")
     return "\n\n".join(parts)
 
+def is_vague_query(query: str) -> bool:
+    """사용자의 질문이 모호한지 판단"""
+    vague_indicators = [
+        # 일반적인 모호한 표현들
+        "도움", "알려", "설명", "뭔가", "어떻게", "무엇", "어떤", "좀", "혹시",
+        # 불완전한 질문들
+        "에 대해", "관련", "대한", "에서", "쪽으로", "관해서",
+        # 애매한 단어들
+        "것", "거", "그", "이", "저", "그런", "이런", "저런"
+    ]
+    
+    # 질문이 너무 짧거나 (5글자 이하)
+    if len(query.strip()) <= 5:
+        return True
+    
+    # 구체적인 용어가 없고 모호한 표현만 있는 경우
+    vague_count = sum(1 for indicator in vague_indicators if indicator in query)
+    words = query.split()
+    
+    # 전체 단어 중 모호한 표현의 비율이 높으면 모호한 질문으로 판단
+    if len(words) > 0 and vague_count / len(words) > 0.3:
+        return True
+    
+    # 질문표가 없고 서술형인 경우도 모호할 수 있음
+    if "?" not in query and len(words) < 3:
+        return True
+        
+    return False
+
+def generate_clarifying_questions(query: str, conversation_history: List[Message]) -> str:
+    """모호한 질문에 대한 명확화 질문들을 생성"""
+    
+    # 대화 히스토리에서 맥락 파악
+    context_prompt = ""
+    if len(conversation_history) > 1:
+        recent_context = conversation_history[-3:]  # 최근 3개 메시지만 사용
+        context_prompt = f"최근 대화 맥락:\n"
+        for msg in recent_context[:-1]:  # 마지막 질문 제외
+            context_prompt += f"- {msg.role}: {msg.content}\n"
+    
+    clarifying_prompt = f"""사용자의 질문이 모호합니다. AI 학습 플랫폼 맥락에서 더 구체적인 도움을 제공하기 위해 명확화 질문을 생성해주세요.
+
+{context_prompt}
+
+사용자 질문: "{query}"
+
+다음 영역 중 어떤 것에 관심이 있는지 2-3개의 선택지를 제공해주세요:
+
+1. 데이터 전처리 관련 (데이터 선택, 정규화, 증강 등)
+2. 모델 설계 관련 (CNN 구조, 활성화 함수, 레이어 설정 등)  
+3. 학습 및 평가 관련 (훈련 과정, 성능 측정, 하이퍼파라미터 등)
+4. 블록 코딩 시스템 사용법
+5. 특정 오류나 문제 해결
+
+친근하고 도움이 되는 톤으로 답변해주세요."""
+
+    try:
+        clarifying_messages = [HumanMessage(content=clarifying_prompt)]
+        result = chat(clarifying_messages)
+        return result.content
+    except Exception as e:
+        logger.error(f"Error generating clarifying questions: {e}")
+        return """질문을 더 구체적으로 해주시면 더 정확한 도움을 드릴 수 있어요! 
+
+어떤 영역에 대해 궁금하신가요?
+1. 데이터 전처리 (데이터 준비, 정리, 변환)
+2. 모델 설계 (신경망 구조, 레이어 설정)
+3. 모델 훈련 및 평가 (학습 과정, 성능 측정)
+4. 블록 코딩 시스템 사용법
+5. 특정 문제나 오류 해결
+
+구체적인 상황이나 목표를 알려주시면 더 맞춤형 조언을 드릴게요!"""
+
 def sha1_id(source: str, content: str) -> str:
     return hashlib.sha1(f"{source}\n{content}".encode("utf-8")).hexdigest()
 
@@ -130,6 +203,13 @@ async def service(conversation_id: str, conversation: Conversation):
         query = conversation.conversation[-1].content
         logger.debug(f"Query: {query[:100]}...")
         
+        # 모호한 질문 감지 및 명확화 질문 생성
+        if is_vague_query(query):
+            logger.info(f"Detected vague query, generating clarifying questions")
+            clarifying_response = generate_clarifying_questions(query, conversation.conversation)
+            return {"id": conversation_id, "reply": clarifying_response}
+        
+        # 구체적인 질문의 경우 기존 RAG 로직 수행
         docs = retriever.get_relevant_documents(query=query)
         if not docs:
             logger.warning(f"No relevant documents found for query: {query[:50]}...")

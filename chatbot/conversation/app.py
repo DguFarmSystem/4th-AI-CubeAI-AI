@@ -39,11 +39,21 @@ app.add_middleware(
 )
 
 class Message(BaseModel):
-    role: Literal["user", "assistant", "system"]
-    content: str = Field(..., min_length=1, max_length=10000)
+    role: Literal["user", "assistant", "system"] = Field(..., example="user")
+    content: str = Field(..., min_length=1, max_length=10000, example="CNN 모델을 어떻게 만드나요?")
 
 class Conversation(BaseModel):
-    conversation: List[Message] = Field(..., min_items=1, max_items=50)
+    conversation: List[Message] = Field(
+        ..., 
+        min_items=1, 
+        max_items=50,
+        example=[
+            {
+                "role": "user",
+                "content": "CNN 모델을 어떻게 만드나요?"
+            }
+        ]
+    )
 
 
 @app.get("/health")
