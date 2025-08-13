@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Wait for postgres to be ready
-/wait-for-postgres.sh
+# Wait for postgres to be ready (simple wait instead of script)
+sleep 10
 
 # Start FastAPI app in background
 uvicorn app:app --host 0.0.0.0 --port 80 &
