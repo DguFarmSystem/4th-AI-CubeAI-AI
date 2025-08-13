@@ -12,8 +12,9 @@ RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/ap
 
 # PostgreSQL 준비 기다리는 스크립트 복사
 COPY ./wait-for-postgres.sh /wait-for-postgres.sh
-RUN chmod +x /wait-for-postgres.sh
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /wait-for-postgres.sh /entrypoint.sh
 
 EXPOSE 80
 
-CMD ["/wait-for-postgres.sh", "postgres", "python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["/entrypoint.sh"]

@@ -17,6 +17,10 @@ from langchain_core.prompts import (
     PromptTemplate,
     SystemMessagePromptTemplate,
 )
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+import hashlib
+import time
 
 ROLE_CLASS_MAP = {
     "assistant": AIMessage,
@@ -63,11 +67,18 @@ except Exception as e:
     logger.error(f"Failed to initialize vector store: {e}")
     raise
 
-prompt_template = """AI 관련 지식을 알려주는 docs 챗봇으로서, 다음의 AI 관련 정보를 보유하고 있습니다:
+prompt_template = """당신은 AI 학습 플랫폼의 전문 어시스턴트입니다. 4단계 커리큘럼(새싹→잎새→가지→열매)을 통해 사용자가 AI/ML을 체계적으로 학습할 수 있도록 돕습니다.
 
+다음 지식을 바탕으로 답변해주세요:
 {context}
 
-사용자의 질문에 가장 적합한 답변을 제공하세요.
+답변 가이드라인:
+- 사용자의 학습 단계에 맞는 적절한 난이도로 설명
+- 이론과 실습을 연결하여 구체적이고 실용적인 조언 제공
+- 블록 코딩 시스템 활용 방법 안내
+- 다음 학습 단계나 개선 방향 제시
+- 친근하고 격려적인 톤으로 학습 동기 부여
+
 답변:"""
 
 prompt = PromptTemplate(
@@ -87,6 +98,15 @@ def format_docs(docs):
         txt = d.page_content.strip()
         parts.append(f"[{i}] SOURCE: {src}\n{txt}")
     return "\n\n".join(parts)
+
+def sha1_id(source: str, content: str) -> str:
+    return hashlib.sha1(f"{source}\n{content}".encode("utf-8")).hexdigest()
+
+class IngestRequest(BaseModel):
+    path: str = Field(..., description="Directory path to ingest documents from")
+    pattern: str = Field(default="**/*.txt", description="Glob pattern for files to ingest")
+    chunk_size: int = Field(default=800, ge=100, le=2000, description="Size of text chunks")
+    chunk_overlap: int = Field(default=120, ge=0, le=500, description="Overlap between chunks")
 
 
 app = FastAPI()
@@ -130,4 +150,64 @@ async def service(conversation_id: str, conversation: Conversation):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process conversation: {str(e)}"
+        )
+
+@app.post("/ingest")
+async def ingest_documents(request: IngestRequest):
+    try:
+        logger.info(f"Starting document ingestion from {request.path} with pattern {request.pattern}")
+        
+        if not os.path.exists(request.path):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path does not exist: {request.path}"
+            )
+        
+        loader = DirectoryLoader(
+            request.path,
+            glob=request.pattern,
+            loader_cls=TextLoader,
+            loader_kwargs={"autodetect_encoding": True},
+            show_progress=False,
+            use_multithreading=True,
+        )
+        
+        docs = loader.load()
+        if not docs:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No documents found matching pattern {request.pattern} in {request.path}"
+            )
+        
+        now = int(time.time())
+        for d in docs:
+            d.metadata["source"] = d.metadata.get("source") or d.metadata.get("file_path") or request.path
+            d.metadata["indexed_at"] = now
+        
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=request.chunk_size, 
+            chunk_overlap=request.chunk_overlap
+        )
+        chunks = splitter.split_documents(docs)
+        
+        ids = [sha1_id(c.metadata.get("source", ""), c.page_content) for c in chunks]
+        store.add_documents(chunks, ids=ids)
+        
+        logger.info(f"Successfully ingested {len(docs)} files into {len(chunks)} chunks")
+        
+        return {
+            "status": "success",
+            "files_processed": len(docs),
+            "chunks_created": len(chunks),
+            "collection": COLLECTION_NAME,
+            "indexed_at": now
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during document ingestion: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to ingest documents: {str(e)}"
         )
