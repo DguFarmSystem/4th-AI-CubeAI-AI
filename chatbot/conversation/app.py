@@ -55,6 +55,9 @@ class Conversation(BaseModel):
         ]
     )
 
+class SessionResponse(BaseModel):
+    session_id: str = Field(..., example="1")
+
 
 @app.get("/health")
 async def health_check():
@@ -65,6 +68,38 @@ async def health_check():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Redis connection failed: {str(e)}"
+        )
+
+@app.post("/session", response_model=SessionResponse)
+async def create_session():
+    try:
+        # Redis에서 현재 세션 ID 카운터 가져오기
+        current_session_id = r.get("session_counter")
+
+        if current_session_id is None:
+            # 처음 실행시 1부터 시작
+            new_session_id = 1
+        else:
+            # 기존 값에서 1 증가
+            new_session_id = int(current_session_id) + 1
+
+        # 새로운 세션 ID를 Redis에 저장
+        r.set("session_counter", new_session_id)
+
+        logger.info(f"Generated new session ID: {new_session_id}")
+        return SessionResponse(session_id=str(new_session_id))
+
+    except redis.RedisError as e:
+        logger.error(f"Redis error creating session: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error creating session: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
         )
 
 @app.get("/conversation/{conversation_id}")
