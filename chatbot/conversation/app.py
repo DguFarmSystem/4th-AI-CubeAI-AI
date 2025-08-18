@@ -32,7 +32,11 @@ except Exception as e:
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://4th-security-cube-ai-fe.vercel.app",
+        "http://223.130.132.185",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
