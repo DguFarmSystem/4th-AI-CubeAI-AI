@@ -116,11 +116,9 @@ async def get_conversation(conversation_id: str):
             logger.debug(f"Found conversation {conversation_id} with {len(existing_conversation.get('conversation', []))} messages")
             return existing_conversation
         else:
-            logger.warning(f"Conversation {conversation_id} not found")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Conversation {conversation_id} not found"
-            )
+            logger.info(f"Conversation {conversation_id} not found, returning empty conversation")
+            return {"conversation": []}
+
     except redis.RedisError as e:
         logger.error(f"Redis error retrieving conversation {conversation_id}: {e}")
         raise HTTPException(
